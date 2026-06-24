@@ -1,128 +1,174 @@
-# dx11_sync — DX11 游戏多窗口同步器 v2.0
+# DX11 Multi-Window Sync v3.0
 
-一款 Windows 桌面工具，将**主窗口**的键盘/鼠标输入实时广播到多个**副窗口**。适用于 DirectX 11 游戏的多开 / 多窗口同步操控场景。
+**DX11 多窗口同步器** — 将键盘和鼠标操作从一个"主控"游戏窗口同步转发到一个或多个"副控"游戏窗口，实现多开同步操控。
 
-基于 Qt 6 + QML 构建，支持 Win11 Mica 毛玻璃外观，提供流畅的现代化 UI 体验。
+适用场景：需要在同一台电脑上同时操控多个游戏客户端（多开练级、多账号操作等）。
+
+---
 
 ## 功能特性
 
-- **输入广播** — 键盘按键（含系统键）和鼠标（移动、点击、滚轮、侧键）从主窗口同步到所有副窗口
-- **双过滤器** — 支持按窗口标题子串 AND/OR 进程名筛选候选窗口
-- **多选副窗口** — 主窗口单选，副窗口支持多选，刷新列表后保留选择
-- **热键开关** — `Ctrl+Shift+F12` 随时启停同步（F12 默认黑名单，避免注入自身）
-- **坐标转换** — 鼠标屏幕坐标自动转换为各副窗口的客户区坐标
-- **修饰键携带** — Ctrl、Shift、鼠标按钮状态通过 `WPARAM` 正确传递
-- **视觉反馈** — 状态栏实时显示：同步中（绿色）/ 已停止（灰色）
-- **窗口枚举** — 自动发现顶层可见窗口，过滤系统 UI（任务栏、桌面、工具窗口等）
-- **Win11 Mica** — 启用 Mica 材质背景，搭配亚克力半透明面板，与系统外观融合
-- **DPI 感知** — `PerMonitorV2` DPI 感知，高 DPI 下清晰渲染
-- **管理员权限** — 清单声明 `requireAdministrator`（全局钩子所需），启动时自动 UAC 提权
+- **双窗格界面**：左侧选择主窗口（输入源），右侧勾选副窗口（同步目标）
+- **实时过滤**：按窗口标题或进程名快速筛选，支持 300ms 防抖
+- **键盘同步**：所有按键（KeyDown / KeyUp）实时转发到副窗口
+- **鼠标同步**：鼠标移动 / 点击 / 滚轮同步，移动事件限流 ~120 次/秒防止溢出
+- **热键黑名单**：可按组屏蔽特定按键（Alt+Tab、Win 键、功能键等），防止误操作
+- **Win11 风格界面**：Direct2D / DirectWrite 自绘，支持 Mica 材质、深色/浅色主题自适应、圆角窗口、DPI 感知
+- **零依赖**：静态编译为单一 EXE，无需安装任何运行时或 DLL
+- **异步注入**：使用 `PostMessage` 非阻塞转发，延迟极低
 
-## 截图
+---
 
-<!-- 可在此处放置截图 -->
-<!-- ![主界面](assets/screenshot.png) -->
+## 系统要求
+
+| 要求 | 说明 |
+|------|------|
+| **操作系统** | Windows 10 (1903+) 或 Windows 11 |
+| **架构** | x64 |
+| **权限** | **管理员权限**（全局钩子必需，已在清单中声明） |
+| **运行时** | 无需安装任何运行时 — 静态链接，单文件 EXE |
+
+---
 
 ## 构建
 
-### 依赖
+### 方式一：build.bat（推荐，无需 CMake）
 
-| 组件 | 版本要求 | 说明 |
-|------|---------|------|
-| **Qt** | ≥ 6.5（推荐 6.11+） | Quick、QuickControls2 模块 |
-| **CMake** | ≥ 3.16 | 构建系统 |
-| **C++17 编译器** | MSVC 2019+ 或 MinGW-w64 13.1+ | |
-| **系统库** | user32、gdi32、comctl32、dwmapi | Windows 自带，无需安装 |
+1. 安装 [Visual Studio 2026](https://visualstudio.microsoft.com/)（Community 版即可），勾选 **"使用 C++ 的桌面开发"** 工作负载
+2. 双击 `build.bat` 或在命令行中运行
 
-零第三方 C++ 库依赖。
-
-### 编译
-
-项目提供了 `CMakePresets.json`，内含 MinGW-w64 + Qt 6.11.1 预设。请根据本机 Qt 路径修改预设中的 `CMAKE_PREFIX_PATH`。
-
-```bash
-# MinGW-w64（使用预设）
-cmake --preset qt6-mingw
-cmake --build --preset qt6-mingw
-
-# MSVC（Visual Studio）
-cmake -B build -G "Visual Studio 17 2022" ^
-    -DCMAKE_PREFIX_PATH="C:/Qt/6.x.x/msvc2022_64"
-cmake --build build --config Release
+```bat
+build.bat
 ```
 
-### 打包
+生成 `dx11_sync.exe`（以及配套的 `dx11_sync.exe.manifest`）。
 
-构建完成后，使用 `scripts/package.ps1` 一键部署 Qt 依赖并打包：
+### 方式二：CMake
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/package.ps1
+cmake -B out/build/x64-Debug -G Ninja
+cmake --build out/build/x64-Debug
 ```
 
-该脚本执行 `windeployqt` 收集所需 DLL，并可选将产物打包为 `dx11_sync-windows-x64.zip`。
+构建输出位于 `out/build/x64-Debug/dx11_sync.exe`。
 
-## 使用
+### 构建产物
 
-1. 以**管理员身份**运行 `dx11_sync.exe`（清单自动触发 UAC 提权）
-2. 先启动目标游戏，打开多个窗口
-3. 在工具中输入窗口标题 / 进程名关键词，点击**刷新列表**
-4. **选择一个主窗口**（单选）和**多个副窗口**（多选）
-5. 点击**开始同步**，或按 `Ctrl+Shift+F12`
-6. 激活主窗口并开始操作 — 输入将同步到所有副窗口
-7. 再次按 `Ctrl+Shift+F12` 或点击**停止同步**结束
+| 文件 | 说明 |
+|------|------|
+| `dx11_sync.exe` | 主程序（x64，静态链接） |
+| `dx11_sync.exe.manifest` | 外部清单（管理员权限 + DPI 声明，必须与 EXE 放在同一目录） |
 
-## 项目结构
+---
+
+## 使用说明
+
+### 启动
+
+右键 `dx11_sync.exe` → **以管理员身份运行**（或直接双击，UAC 会自动提示提权）。
+
+### 界面布局
+
+```
+┌─────────────────────────────────────────────────┐
+│  DX11 多窗口同步器 v3.0                          │
+├──────────────────┬──────────────────────────────┤
+│ 🖥 主窗口         │ 🖥 同步窗口                   │
+│ [筛选框_______]   │ [筛选框_______]              │
+│ ┌────────────┐   │ ┌────────────────────────┐   │
+│ │ 窗口 A   ◉ │   │ │ ☑ 窗口 B               │   │
+│ │ 窗口 B     │   │ │ ☑ 窗口 C               │   │
+│ │ 窗口 C     │   │ │ ☐ 窗口 D               │   │
+│ └────────────┘   │ └────────────────────────┘   │
+├──────────────────┴──────────────────────────────┤
+│ ▶ 开始同步  ⏹ 终止同步  🔒 热键黑名单           │
+│ 状态：就绪                                      │
+└─────────────────────────────────────────────────┘
+```
+
+### 操作步骤
+
+1. **选主窗口**：在左侧列表单击你要操控的游戏窗口（单选）
+2. **选副窗口**：在右侧列表勾选需要同步的游戏窗口（多选）
+3. 点击 **▶ 开始同步** 启动输入转发
+4. 切换到主窗口进行游戏操作 — 所有键盘鼠标输入自动同步到副窗口
+5. 点击 **⏹ 终止同步** 停止转发
+
+### 热键黑名单
+
+点击 **🔒 热键黑名单** 打开设置对话框，按组屏蔽不需要转发的按键：
+
+- **控制键**：Ctrl / Alt / Shift 等
+- **导航键**：Tab / Esc / Enter / Backspace 等
+- **系统键**：Win / Alt+Tab / Ctrl+Esc 等（强烈建议屏蔽）
+- **功能键**：F1–F12
+- **字母键**：A–Z
+- **数字键**：0–9
+- **编辑键**：Insert / Delete / Home / End 等
+- **多媒体键**：音量、播放控制等
+
+> **注意**：默认已屏蔽 Alt+Tab、Win 键等危险组合键，防止意外切出游戏。
+
+---
+
+## 技术架构
+
+| 层次 | 技术选型 |
+|------|---------|
+| **语言** | C++17 |
+| **编译器** | MSVC (Visual Studio 2026) |
+| **构建** | CMake 3.20+ / build.bat |
+| **UI 渲染** | Direct2D + DirectWrite（自绘窗口） |
+| **窗口管理** | 原生 Win32 API |
+| **输入捕获** | `SetWindowsHookEx` — 低级全局钩子（`WH_KEYBOARD_LL` + `WH_MOUSE_LL`） |
+| **输入注入** | `PostMessageW`（异步非阻塞） |
+| **主题** | DWM API（Mica 材质、深色标题栏、圆角）+ 注册表主题检测 |
+
+### 项目结构
 
 ```
 dx11_sync/
-├── CMakeLists.txt              # CMake 构建配置
-├── CMakePresets.json           # CMake 预设（Qt 6 + MinGW + Ninja）
-├── app.manifest                # Windows 清单（提权、DPI、Win10+ 兼容性）
-├── resource.rc.in              # MinGW 资源模板（清单 + 版本信息）
-├── scripts/
-│   └── package.ps1             # 打包脚本（windeployqt + zip）
-└── src/
-    ├── main.cpp                # 入口：QGuiApplication + QML 引擎 + Mica 背景
-    ├── qml/
-    │   └── MainWindow.qml      # QML GUI 布局（~500 行）
-    ├── sync_controller.h       # Qt 控制器接口
-    ├── sync_controller.cpp     # QML ↔ 引擎 + 窗口管理器的桥接层
-    ├── sync_engine.h           # 同步引擎接口
-    ├── sync_engine.cpp         # 核心：全局钩子 + PostMessage 注入
-    ├── window_manager.h        # 窗口枚举接口
-    ├── window_manager.cpp      # EnumWindows + 过滤 + 进程名解析
-    ├── window_list_model.h     # Qt 列表模型接口
-    └── window_list_model.cpp   # QAbstractListModel，向 QML 暴露窗口列表
+├── CMakeLists.txt          # CMake 构建定义
+├── build.bat               # 一键构建脚本
+├── app.manifest            # 外部清单（管理员权限、DPI、Win10/11 兼容）
+├── resource.rc / .h        # Windows 资源文件（图标等）
+├── dx11_sync.ico           # 应用图标
+│
+├── src/
+│   ├── main.cpp            # 程序入口 — wWinMain
+│   ├── app_window.h/.cpp   # 主窗口（Direct2D UI、消息处理、布局渲染）
+│   ├── sync_engine.h/.cpp  # 同步引擎核心（钩子回调、PostMessage 注入）
+│   ├── window_manager.h/.cpp # 顶层窗口枚举与过滤
+│   └── key_blacklist.h/.cpp  # 热键黑名单对话框
+│
+└── out/build/              # CMake 构建输出
 ```
 
-## 架构
+### 核心机制
 
-```
-QML UI (MainWindow.qml)
-    ↕  Qt 属性绑定 + 信号/槽 + Context Property
-SyncController (Qt C++ 适配层)
-    ↕
-├── WindowListModel → WindowManager → EnumWindows (Win32)
-└── SyncEngine → SetWindowsHookEx + PostMessage (Win32)
-```
+- **单例模式**：`SyncEngine` 通过静态 `s_instance` 指针让全局钩子回调访问实例数据
+- **前台检测**：仅当主窗口处于前台时才转发输入，防止在其他应用中误触发
+- **重入保护**：`m_inInject` 标志防止钩子捕获自身注入的合成事件
+- **鼠标限流**：鼠标移动事件限制在 ~120 次/秒，避免消息队列溢出
 
-- **SyncEngine** — 纯 Win32 核心（无 Qt 依赖），可复用于其他前端
-- **SyncController** — 薄 `QObject` 封装，将引擎回调转为 QML 属性通知
-- **WindowListModel** — `QAbstractListModel` 子类，将 `WindowInfo` 结构体暴露为 QML 列表角色
-- **QML UI** — 使用 Win11 Mica 背景 + 亚克力半透明面板，渲染现代化界面
+---
 
-## 技术原理
+## 许可证
 
-- **输入捕获**：通过 `SetWindowsHookExW` 安装 `WH_KEYBOARD_LL` 和 `WH_MOUSE_LL` 全局低级钩子
-- **条件注入**：仅在主窗口处于前台（`GetForegroundWindow`）时转发输入
-- **消息发送**：使用 `PostMessageW` 异步注入 `WM_KEYDOWN/UP`、`WM_MOUSEMOVE`（限流 ~120 Hz）、鼠标按钮、滚轮等
-- **坐标转换**：`ScreenToClient` 将屏幕坐标转为各副窗口客户区坐标
-- **安全防护**：注入互斥锁（`m_inInject`）防止重入；F12 默认黑名单，避免热键注入自身
+仅供个人学习与研究使用。请遵守相关游戏的服务条款。
 
-## 许可
+---
 
-未声明许可证。如需使用或分发，请联系作者。
+## 常见问题
 
-## 作者
+**Q: 为什么需要管理员权限？**
+A: Windows 的低级全局钩子（`WH_KEYBOARD_LL` / `WH_MOUSE_LL`）需要管理员权限才能安装，这是系统安全机制。
 
-QQ：2055078975
+**Q: 某些游戏输入不同步？**
+A: 部分游戏使用 DirectInput 或 Raw Input 直接读取硬件，绕过了 Windows 消息队列，此类游戏无法通过 `PostMessage` 注入同步。
+
+**Q: 如何关闭"以管理员身份运行"提示？**
+A: 这是 UAC 行为，无法通过应用程序绕过。可在系统 UAC 设置中降低级别（不推荐）。
+
+**Q: 为什么 EXE 旁边还有一个 .manifest 文件？**
+A: 清单需要声明管理员权限和 DPI 感知。`/MANIFEST:NO` 禁用了链接器自动嵌入的默认清单，改用此外部文件以实现完整功能。

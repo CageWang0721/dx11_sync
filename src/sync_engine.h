@@ -5,8 +5,6 @@
 // 原理：WH_KEYBOARD_LL / WH_MOUSE_LL 低层钩子捕获父窗口输入，
 // 通过 PostMessage 异步投递到子窗口消息队列。
 //
-// 热键：Ctrl+Shift+F12 切换同步开关
-
 #include <windows.h>
 #include <vector>
 #include <functional>
@@ -31,8 +29,6 @@ public:
     bool IsRunning() const { return m_running; }
 
     void SetStatusCallback(StatusCallback cb) { m_statusCallback = std::move(cb); }
-
-    static constexpr UINT TOGGLE_HOTKEY_VK = VK_F12;
 
     void AddBlacklistKey(DWORD vkCode);
     void RemoveBlacklistKey(DWORD vkCode);

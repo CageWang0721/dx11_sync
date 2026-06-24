@@ -1,0 +1,2 @@
+#include "src/resource.h"
+IDI_ICON1 ICON "dx11_sync.ico"

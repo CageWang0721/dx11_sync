@@ -5,7 +5,6 @@ SyncEngine* SyncEngine::s_instance = nullptr;
 
 SyncEngine::SyncEngine() {
     s_instance = this;
-    m_keyBlacklist.insert(VK_F12);
     m_lastMouseTime = 0;
 }
 
@@ -57,7 +56,7 @@ bool SyncEngine::Start() {
     m_running = true;
     m_lastMouseTime = 0;
     if (m_statusCallback)
-        m_statusCallback(L"🟢 同步中 | 切到父窗口操作 | Ctrl+Shift+F12 停止");
+        m_statusCallback(L"🟢 同步中 | 切到父窗口操作");
     return true;
 }
 
@@ -81,15 +80,6 @@ LRESULT CALLBACK SyncEngine::LowLevelKeyboardProc(int nCode, WPARAM wParam, LPAR
 
     auto* pKbd = reinterpret_cast<KBDLLHOOKSTRUCT*>(lParam);
     bool keyDown = (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN);
-
-    // 切换热键 Ctrl+Shift+F12
-    if (pKbd->vkCode == TOGGLE_HOTKEY_VK && keyDown) {
-        if ((GetAsyncKeyState(VK_CONTROL) & 0x8000) &&
-            (GetAsyncKeyState(VK_SHIFT)   & 0x8000)) {
-            if (pThis->m_running) pThis->Stop(); else pThis->Start();
-            return 1;
-        }
-    }
 
     if (pThis->m_running && pThis->ShouldForward()) {
         if (!pThis->IsKeyBlacklisted(pKbd->vkCode)) {
